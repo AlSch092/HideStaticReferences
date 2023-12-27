@@ -12,8 +12,9 @@ A couple of techniques are used in order to hide static references to strings & 
 ## Further Recommendations  
 -Calls to `GetProcAddress` and `GetModuleHandle` are detection artifacts and should be called at runtime via function pointers, with their addresses retrieved by walking the exports list of KERNEL32.dll.  
 -A library with a premade set of function pointers for all APIs in KERNEL32 can be made for easier implementation in larger projects  
+-The 'xor' routine can be made more complex with adding/subtracting a constant on each alternating digit. This will stop XOR brute forcing tools from working.
 
 ## Screenshot:
-Below we can see a screenshot of how disassembly looks when working with this technique: No strings should be viewable in plain sight and thus an attacker cannot easily find our function by using popular tools.
+Below we can see a screenshot of how disassembly looks when working with this technique: No strings should be viewable in plain sight and thus an attacker cannot easily find our function by string scanning using popular tools.
 
 ![ida_view_O2](https://github.com/AlSch092/HideStaticReferences/assets/94417808/f5a1dafd-383a-4d42-a8a9-c05bed3d4a09)
