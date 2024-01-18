@@ -1,10 +1,13 @@
 //HideAPICalls -> Proof of concept to test how we can hide references to APIs from static analysis
-//By AlSch092 @ github, Dec. 25 2023
+//By AlSch092 @ github, Dec. 25 2023, Last Updated Jan 18, 2024.
 
 //Results: Project contains 0 string references and references to certain WINAPIs are removed completely
 //Requirements: x64 Target Arch, /O2 optimization (or else string artifacts are revealed when viewing disassembly opcodes)
 
 #include <windows.h>
+#include <ImageHlp.h>
+#include <stdio.h>
+#pragma comment(lib, "ImageHlp")
 
 #define XOR_STRING(input, key) { size_t i; size_t len = strlen(input); for (i = 0; i < len; ++i) { input[i] = (input)[i] ^= (key); } } //this method can get more complex, such as each alternating digit xor's with a different key or adds/subtracts after XORing
 
@@ -13,10 +16,64 @@ __forceinline char XOR(char a, unsigned char key) //need to use __forceinline, j
 	return a ^= key;
 }
 
+//Replacement for GetProcAddress, such that static references won't show up to `GetProcAddress`.
+FARPROC _GetProcAddress(PCSTR Module, LPCSTR lpProcName)
+{
+	DWORD* dNameRVAs(0); //array: addresses of export names
+	DWORD* dFunctionRVAs(0);
+	WORD* dOrdinalRVAs(0);
+
+	_IMAGE_EXPORT_DIRECTORY* ImageExportDirectory = NULL;
+	unsigned long cDirSize = 0;
+	_LOADED_IMAGE LoadedImage;
+	char* sName = NULL;
+
+	UINT64 AddressFound = NULL;
+
+	UINT64 ModuleBase = (UINT64)GetModuleHandleA(Module); //last remaining artifacts for detection. TODO: Use PEB to fetch this instead of API
+
+	if (!ModuleBase)
+		return NULL;
+
+	if (MapAndLoad(Module, NULL, &LoadedImage, TRUE, TRUE))
+	{
+		ImageExportDirectory = (_IMAGE_EXPORT_DIRECTORY*)ImageDirectoryEntryToData(LoadedImage.MappedAddress, false, IMAGE_DIRECTORY_ENTRY_EXPORT, &cDirSize);
+
+		if (ImageExportDirectory != NULL)
+		{
+			dNameRVAs = (DWORD*)ImageRvaToVa(LoadedImage.FileHeader, LoadedImage.MappedAddress, ImageExportDirectory->AddressOfNames, NULL);
+			dFunctionRVAs = (DWORD*)ImageRvaToVa(LoadedImage.FileHeader, LoadedImage.MappedAddress, ImageExportDirectory->AddressOfFunctions, NULL);
+			dOrdinalRVAs = (WORD*)ImageRvaToVa(LoadedImage.FileHeader, LoadedImage.MappedAddress, ImageExportDirectory->AddressOfNameOrdinals, NULL);
+
+			for (size_t i = 0; i < ImageExportDirectory->NumberOfFunctions; i++)
+			{
+				sName = (char*)ImageRvaToVa(LoadedImage.FileHeader, LoadedImage.MappedAddress, dNameRVAs[i], NULL);					
+				
+				if (strcmp(sName, lpProcName) == 0) 
+				{
+					AddressFound = ModuleBase + dFunctionRVAs[dOrdinalRVAs[i]];;
+					break;
+				}
+			}
+		}
+		else
+		{		
+			UnMapAndLoad(&LoadedImage);
+			return NULL;
+		}
+
+		UnMapAndLoad(&LoadedImage);
+	}
+	
+	return (FARPROC)AddressFound;
+}
+
 void HiddenMessageBox()
 {
 	//Each letter is xor'd with an inline function, lets us still see what each string's value is while xor'ing it at compile time. no plaintext is left over from this
 	// we use the stack instead of the heap intentionally to help hide, all that's left is some instructions moving 'gibberish' into rsp+X
+	UINT64 test_addr = (UINT64)_GetProcAddress("kernel32.dll", "VirtualProtect");
+	printf("%llX\n", test_addr);
 
 	//"KERNEL32.DLL"
 	char k32[] = { XOR('K', 0x69), XOR('E', 0x69), XOR('R', 0x69), XOR('N', 0x69), XOR('E', 0x69), XOR('L', 0x69), XOR('3', 0x69), XOR('2', 0x69), XOR('.', 0x69), XOR('D', 0x69), XOR('L', 0x69), XOR('L', 0x69), 0x00 };
@@ -33,18 +90,12 @@ void HiddenMessageBox()
 	XOR_STRING(msgboxA, 0x11);
 	XOR_STRING(getprocaddress, 0x15);
 
-	UINT64 _getProcAddr_addr = (UINT64)GetProcAddress(GetModuleHandleA(k32), getprocaddress); //todo: get rid of GetProcAddress + GetModuleHandleA, replace with function pointer, addr grabbed from export walking
-
 	XOR_STRING(k32, 0x69);
-	XOR_STRING(getprocaddress, 0x15);
 
 	if (LoadLibraryA(user32)) //would be nice to get rid of loadlibrary calls too, or rely on modules which are already loaded in mem
 	{
-		typedef FARPROC(*_GetProcAddress)(HMODULE, const char*);
-		_GetProcAddress __GetProcAddress = (_GetProcAddress)_getProcAddr_addr; //to take this a step further we can walk the export list of k32.dll  for the address offset instead of using GetProcAddress explicitly
-
 		typedef int(*_MessageBoxA)(HWND, char*, char*, int);
-		_MessageBoxA __MessageBoxA = (_MessageBoxA)__GetProcAddress(GetModuleHandleA(user32), msgboxA);
+		_MessageBoxA __MessageBoxA = (_MessageBoxA)_GetProcAddress(user32, msgboxA);
 
 		XOR_STRING(user32, 0x69); //re-mask values to values they were before as soon as it's possible to
 		XOR_STRING(msgboxA, 0x11);
