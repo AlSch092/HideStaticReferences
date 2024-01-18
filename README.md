@@ -10,9 +10,9 @@ A couple of techniques are used in order to hide static references to strings & 
 /O2 optimization is highly recommended, or else some string's character artifacts will be viewable through a disassembly viewer. /O2 packs multiple characters into a single opcode (instead of just one character) and thus strings become more difficult to visualize, and tools won't auto-display any characters. 
 
 ## Further Recommendations  
--Calls to `GetProcAddress` and `GetModuleHandle` are detection artifacts and should be called at runtime via function pointers, with their addresses retrieved by walking the exports list of KERNEL32.dll.  
+-Calls to `GetModuleHandle` is a possible detection artifact and can be replaced with grabbing this data from the PEB. Calls to `GetProcAddress` have now been replaced with _GetProcAddress, which grabs function addresses by traversing the export directory table.
 -A library with a premade set of function pointers for all APIs in KERNEL32 can be made for easier implementation in larger projects  
--The 'xor' routine can be made more complex with adding/subtracting a constant on each alternating digit. This will stop XOR brute forcing tools from working.
+-The 'xor' routine can be made more complex by adding/subtracting a constant on each alternating digit, which will stop XOR brute forcing tools.
 
 ## Screenshot:
 Below we can see a screenshot of how disassembly looks when working with this technique: No strings should be viewable in plain sight and thus an attacker cannot easily find our function by string scanning using popular tools.
