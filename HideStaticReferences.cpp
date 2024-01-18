@@ -72,8 +72,6 @@ void HiddenMessageBox()
 {
 	//Each letter is xor'd with an inline function, lets us still see what each string's value is while xor'ing it at compile time. no plaintext is left over from this
 	// we use the stack instead of the heap intentionally to help hide, all that's left is some instructions moving 'gibberish' into rsp+X
-	UINT64 test_addr = (UINT64)_GetProcAddress("kernel32.dll", "VirtualProtect");
-	printf("%llX\n", test_addr);
 
 	//"KERNEL32.DLL"
 	char k32[] = { XOR('K', 0x69), XOR('E', 0x69), XOR('R', 0x69), XOR('N', 0x69), XOR('E', 0x69), XOR('L', 0x69), XOR('3', 0x69), XOR('2', 0x69), XOR('.', 0x69), XOR('D', 0x69), XOR('L', 0x69), XOR('L', 0x69), 0x00 };
