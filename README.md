@@ -16,6 +16,6 @@ A couple of techniques are used in order to hide static references to strings & 
 
 
 ## Visual Examples
-Below we can see a screenshot of how disassembly looks when working with this technique: No strings should be viewable in plain sight and thus an attacker cannot easily find our function by string scanning using popular tools. When viewing static API calls, close to zero entries should show up.
+Below we can see a screenshot of how disassembly looks when working with this technique: No strings should be viewable in plain sight and thus an attacker cannot easily find our function by string scanning using popular tools. The top graph block in IDA shows the encrypted string being placed into offsets of RBP register. While it may appear as if some characters are present there, these are not the original string and translate to gibberish until its been decrypred. When viewing static API calls, close to zero entries should show up.
 
 ![ida_view_O2](https://github.com/AlSch092/HideStaticReferences/assets/94417808/f5a1dafd-383a-4d42-a8a9-c05bed3d4a09)
